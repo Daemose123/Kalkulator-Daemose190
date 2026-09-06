@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
 
-      - name: Prepare Buildozer Android SDK
+      - name: Prepare Android SDK
         shell: bash
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
@@ -57,6 +57,9 @@ jobs:
           mv \
             "$SDK/cmdline-tools/cmdline-tools" \
             "$SDK/cmdline-tools/latest"
+
+          # Compatibility untuk Buildozer versi lama
+          ln -s "$SDK/cmdline-tools/latest" "$SDK/tools"
 
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
@@ -79,24 +82,32 @@ jobs:
 
           yes | sdkmanager --licenses || true
 
-      - name: Install Android SDK
+      - name: Install Android SDK packages
         shell: bash
         run: |
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "build-tools;36.0.0" \
             "build-tools;37.0.0"
 
-      - name: Check AIDL
+      - name: Verify SDK
         shell: bash
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Build-Tools:"
+          echo "=== SDK ==="
+          ls -la "$SDK"
+
+          echo "=== sdkmanager ==="
+          "$SDK/tools/bin/sdkmanager" --version
+
+          echo "=== Build Tools ==="
           ls -la "$SDK/build-tools"
 
-          echo "AIDL:"
-          ls -la "$SDK/build-tools/37.0.0/aidl"
+          echo "=== AIDL ==="
+          find "$SDK/build-tools" -name aidl -type f
 
       - name: Install Buildozer
         run: |
@@ -104,26 +115,29 @@ jobs:
           python3 -m pip install buildozer
           python3 -m pip install "cython==0.29.37"
 
-      - name: Clean Buildozer
+      - name: Clean project build
         run: |
           rm -rf .buildozer
           rm -rf bin
 
-      - name: Recreate Android SDK
+      - name: Restore Android SDK compatibility
         shell: bash
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p "$SDK/cmdline-tools"
+
+          if [ ! -e "$SDK/tools" ]; then
+            ln -s "$SDK/cmdline-tools/latest" "$SDK/tools"
+          fi
 
           mkdir -p "$SDK/licenses"
 
           printf '%s\n' \
             "8933bad161af4178b1185d1a37fbf41ea5269c55" \
-            "d56f5187479451eabf01fb78af6dfcb131a648e0" \
+            "d56f5187479451eabf01fb78af6dfcb131a6481e0" \
             "24333f8a63b6825ea9c5514f83c2829b004d1fee" \
             > "$SDK/licenses/android-sdk-license"
-
-          echo "SDK ready:"
-          ls -la "$SDK"
 
       - name: Build APK
         shell: bash

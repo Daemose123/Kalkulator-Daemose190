@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -36,59 +36,67 @@ jobs:
             libffi-dev \
             libssl-dev
 
-      - name: Set Java
+      - name: Set Java 17
         run: |
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
 
-      - name: Install Android SDK
+      - name: Prepare Buildozer Android SDK
         shell: bash
         run: |
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          mkdir -p "$SDK/cmdline-tools"
 
           wget -q \
             "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" \
             -O /tmp/cmdline-tools.zip
 
           unzip -q /tmp/cmdline-tools.zip \
-            -d "$ANDROID_HOME/cmdline-tools"
+            -d "$SDK/cmdline-tools"
 
           mv \
-            "$ANDROID_HOME/cmdline-tools/cmdline-tools" \
-            "$ANDROID_HOME/cmdline-tools/latest"
+            "$SDK/cmdline-tools/cmdline-tools" \
+            "$SDK/cmdline-tools/latest"
 
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
 
-      - name: Accept Android licenses
+      - name: Accept Android SDK licenses
         shell: bash
         run: |
-          mkdir -p "$ANDROID_HOME/licenses"
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          yes | sdkmanager --licenses || true
+          mkdir -p "$SDK/licenses"
 
           printf '%s\n' \
             "8933bad161af4178b1185d1a37fbf41ea5269c55" \
-            "d56f5187479451eabf01fb78af6dfcb131a648e0" \
+            "d56f5187479451eabf01fb78af6dfcb131a6481e0" \
             "24333f8a63b6825ea9c5514f83c2829b004d1fee" \
-            > "$ANDROID_HOME/licenses/android-sdk-license"
+            > "$SDK/licenses/android-sdk-license"
 
-      - name: Install Android SDK packages
+          yes | sdkmanager --licenses || true
+
+      - name: Install Android SDK
         shell: bash
         run: |
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "build-tools;36.0.0"
+            "build-tools;37.0.0"
 
-          echo "Installed Build-Tools:"
-          ls -la "$ANDROID_HOME/build-tools"
+      - name: Check AIDL
+        shell: bash
+        run: |
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          echo "Build-Tools:"
+          ls -la "$SDK/build-tools"
+
+          echo "AIDL:"
+          ls -la "$SDK/build-tools/37.0.0/aidl"
 
       - name: Install Buildozer
         run: |
@@ -98,15 +106,30 @@ jobs:
 
       - name: Clean Buildozer
         run: |
-          rm -rf "$HOME/.buildozer"
           rm -rf .buildozer
           rm -rf bin
+
+      - name: Recreate Android SDK
+        shell: bash
+        run: |
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p "$SDK/licenses"
+
+          printf '%s\n' \
+            "8933bad161af4178b1185d1a37fbf41ea5269c55" \
+            "d56f5187479451eabf01fb78af6dfcb131a648e0" \
+            "24333f8a63b6825ea9c5514f83c2829b004d1fee" \
+            > "$SDK/licenses/android-sdk-license"
+
+          echo "SDK ready:"
+          ls -la "$SDK"
 
       - name: Build APK
         shell: bash
         run: |
-          export ANDROID_HOME="$HOME/android-sdk"
-          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
+          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
 
           buildozer android debug
 
